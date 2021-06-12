@@ -55,6 +55,7 @@ class Application(tornado.web.Application):
 
         handlers = [
                 (r"/", DefaultHandler, dict(ctx=self)),
+                (r"/api/graphql", DefaultHandler, dict(ctx=self)),
         ]
 
         settings = dict(
