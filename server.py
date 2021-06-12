@@ -24,11 +24,11 @@ from tornado.options import define, options
 
 nest_asyncio.apply()
 
-tornado.options.define("port", default=8001, help="rollon server port", type=int)
-tornado.options.define("address", default="0.0.0.0", help="run on the given address", type=str)
-tornado.options.define("env", default="local", help="set runtime setup (env.<runtime>.json)", type=str)
-tornado.options.define("selfsign", default=False, help="start with self signed certificates", type=bool)
-tornado.options.define("password", default="", help="ssl key password", type=str)
+tornado.options.define("port", default=8001, help="server port", type=int)
+tornado.options.define("host", default="0.0.0.0", help="host address to bind", type=str)
+tornado.options.define("env", default="local", help="set runtime setup (env.[runtime].json)", type=str)
+tornado.options.define("encrypt", default=False, help="start with built in certificates", type=bool)
+tornado.options.define("password", default="", help="certificate key", type=str)
 
 class DefaultHandler(tornado.web.RequestHandler):
 
@@ -88,7 +88,7 @@ def main():
 
     app = Application(runtime)
 
-    if options.selfsign:
+    if options.encrypt:
         ssl_ctx = ssl.create_default_context(ssl.Purpose.CLIENT_AUTH)
         password = options.password or None
         ssl_ctx.load_cert_chain('./keys/host.cert', './keys/host.key', password)
@@ -98,7 +98,9 @@ def main():
         server = tornado.httpserver.HTTPServer(app)
 
     server = tornado.httpserver.HTTPServer(app)
-    server.listen(options.port, options.address)
+    server.listen(
+        runtime.get('server', 'port', options.port), 
+        runtime.get('server', 'host', options.host))
 
     app.run()
 

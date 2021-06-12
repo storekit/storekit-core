@@ -2,10 +2,8 @@ import json
 import logging
 import uuid
 import pika
-from pika import adapters
-from pika.adapters.tornado_connection import TornadoConnection
-from pika.exchange_type import ExchangeType
 
+from pika.adapters.tornado_connection import TornadoConnection
 from tornado import gen
 from tornado.concurrent import Future
 
@@ -32,7 +30,6 @@ class WebConsumer(object):
 
     def connect(self):
 
-        logging.info('Connecting to %s', self._url)
         return TornadoConnection(
             pika.URLParameters(self._url),
             self.on_connection_open,
@@ -40,12 +37,10 @@ class WebConsumer(object):
 
     def close_connection(self):
 
-        logging.info('Closing connection')
         self._connection.close()
 
     def add_on_connection_close_callback(self):
 
-        logging.info('Adding connection close callback')
         self._connection.add_on_close_callback(self.on_connection_closed)
 
     def on_connection_closed(self, connection, reason):
@@ -54,13 +49,10 @@ class WebConsumer(object):
         if self._closing:
             self._connection.ioloop.stop()
         else:
-            logging.warning('Connection closed, reopening in 5 seconds: %s',
-                        reason)
             self._connection.ioloop.call_later(5, self.reconnect)
 
     def on_connection_open(self, unused_connection):
 
-        logging.info('Connection opened')
         self.add_on_connection_close_callback()
         self.open_channel()
 
@@ -73,12 +65,10 @@ class WebConsumer(object):
 
     def add_on_channel_close_callback(self):
 
-        logging.info('Adding channel close callback')
         self._channel.add_on_close_callback(self.on_channel_closed)
 
     def on_channel_closed(self, channel, reason):
 
-        logging.warning('Channel %i was closed: %s', channel, reason)
         self._connection.close()
 
     def on_channel_open(self, channel):
@@ -89,14 +79,6 @@ class WebConsumer(object):
         self.setup_exchange()
 
     def setup_exchange(self):
-
-        """
-        self._channel.exchange_declare(
-            callback=self.on_exchange_declareok,
-            exchange=exchange_name,
-            exchange_type=self.EXCHANGE_TYPE,
-        )
-        """
 
         self._channel.exchange_declare(
             exchange=self._event_exchange,
@@ -145,37 +127,28 @@ class WebConsumer(object):
 
     def add_on_cancel_callback(self):
 
-        logging.info('Adding consumer cancellation callback')
         self._channel.add_on_cancel_callback(self.on_consumer_cancelled)
 
     def on_consumer_cancelled(self, method_frame):
 
-        logging.info('Consumer was cancelled remotely, shutting down: %r',
-                    method_frame)
         if self._channel:
             self._channel.close()
 
     def acknowledge_message(self, delivery_tag):
 
-        logging.info('Acknowledging message %s', delivery_tag)
         self._channel.basic_ack(delivery_tag)
 
     def on_message(self, unused_channel, basic_deliver, properties, body):
 
-        logging.info('Received message # %s from %s: %s',
-                    basic_deliver.delivery_tag, properties, body)
-
-
         if properties.correlation_id in self._jobs:
             pending = self._jobs.pop(properties.correlation_id)
-            logging.info("Got data : {}".format(body))
             pending.set_result(json.loads(body))
 
         self.acknowledge_message(basic_deliver.delivery_tag)
 
     
     @gen.coroutine
-    def invoke(self, message):
+    def send_message(self, message):
 
         pending = Future()
         message_id = uuid.uuid4().hex
@@ -208,13 +181,11 @@ class WebConsumer(object):
 
     def on_cancelok(self, unused_frame):
 
-        logging.info('RabbitMQ acknowledged the cancellation of the consumer')
         self.close_channel()
 
     def stop_consuming(self):
 
         if self._channel:
-            logging.info('Sending a Basic.Cancel RPC command to RabbitMQ')
             self._channel.basic_cancel(self.on_cancelok, self._consumer_tag)
 
     def start_consuming(self):
@@ -228,17 +199,14 @@ class WebConsumer(object):
 
     def on_bindok(self, unused_frame):
 
-        logging.info('Queue bound')
         self.start_consuming()
 
     def close_channel(self):
 
-        logging.info('Closing the channel')
         self._channel.close()
 
     def open_channel(self):
 
-        logging.info('Creating a new channel')
         self._connection.channel(on_open_callback=self.on_channel_open)
 
     def run(self):
@@ -248,7 +216,6 @@ class WebConsumer(object):
 
     def stop(self):
 
-        logging.info('Stopping')
         self._closing = True
         self.stop_consuming()
         self._connection.ioloop.start()
