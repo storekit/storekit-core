@@ -36,7 +36,7 @@ class DefaultHandler(tornado.web.RequestHandler):
         self.ctx = ctx
 
     def get(self):
-        self.render("blank.html", messages=0)
+        self.render("404.html", messages=0)
     
     def post(self):
         try:
@@ -55,6 +55,7 @@ class Application(tornado.web.Application):
 
         handlers = [
                 (r"/", DefaultHandler, dict(ctx=self)),
+                (r"/login", DefaultHandler, dict(ctx=self)),
                 (r"/api/graphql", DefaultHandler, dict(ctx=self)),
         ]
 
@@ -62,7 +63,7 @@ class Application(tornado.web.Application):
             cookie_secret="312c04aa-2254-400c-82b5-2b7cf2fd794b",
             template_path=os.path.join(os.path.dirname(__file__), "templates"),
             static_path=os.path.join(os.path.dirname(__file__), "static"),
-            login_url="/login",
+            login_url=config.get('server', 'login_url', "/login"),
             xsrf_cookies=False,
         )
 
@@ -74,7 +75,7 @@ class Application(tornado.web.Application):
             config.get("rabbitmq", "password"),
             config.get("rabbitmq", "host"),
             config.get("rabbitmq", "port"),
-        ),'web-server')
+        ),'storekit-server')
 
         super().__init__(handlers, **settings)
 
